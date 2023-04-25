@@ -71,13 +71,13 @@ end)
 local function drawItems(spriteBatch, rect, cached)
     local prefabs = cached.itemPrefabs
     local rectCenter = rect.Center.ToVector2()
+    local rotation = 0
 
     if #prefabs == 1 or not StorageIcons.Config["grid2x2"] then
         -- if there's only one, draw it max size
         local sprite = cached.drawInfo[prefabs[1]].sprite
         local color = cached.drawInfo[prefabs[1]].color
         local scale = cached.drawInfo[prefabs[1]].scale * StorageIcons.Config["iconScale"]
-        local rotation = 0
         sprite.Draw(spriteBatch, rectCenter, color, rotation, scale)
     else
         -- otherwise, draw the four items in a 2x2 grid
@@ -87,9 +87,13 @@ local function drawItems(spriteBatch, rect, cached)
             local sprite = cached.drawInfo[prefab].sprite
             local color = cached.drawInfo[prefab].color
             local scale = cached.drawInfo[prefab].scale / 2
-            local rotation = 0
             sprite.Draw(spriteBatch, itemPos, color, rotation, scale)
         end
+    end
+
+    if cached.plusSign then
+        local ps = cached.plusSign
+        ps.sprite.Draw(spriteBatch, ps.position, Color(255, 255, 255), rotation, ps.scale)
     end
 end
 
@@ -150,8 +154,8 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
     cache[item.ID]["drawInfo"] = drawInfo
     cache[item.ID]["update"] = false
 
+    local rectCenter = rect.Center.ToVector2()
     if StorageIcons.Config["grid2x2"] then
-        local rectCenter = rect.Center.ToVector2()
         local offsetX = rect.Width / 4
         local offsetY = rect.Height / 4
         cache[item.ID]["2x2Positions"] = {
@@ -161,6 +165,16 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
             Vector2.Add(rectCenter, Vector2(-offsetX, offsetY)),
             Vector2.Add(rectCenter, Vector2(offsetX, offsetY)),
         }
+    end
+
+    local overfilled = (not StorageIcons.Config["grid2x2"] and #prefabs > 1) or #prefabs > 4
+    if StorageIcons.Config["showPlusSignForExtraItems"] and overfilled then
+        local plus = Sprite(StorageIcons.Path .. "/Assets/Plus.png")
+        local scale = math.min(2.0, rect.Width / plus.size.X, rect.Height / plus.size.Y) / 4
+        local position = Vector2.Add(rectCenter, Vector2(rect.Width / 4, -rect.Height / 8))
+        cache[item.ID]["plusSign"] = { sprite = plus, scale = scale, position = position }
+    else
+        cache[item.ID]["plusSign"] = nil
     end
 
     drawItems(spriteBatch, rect, cache[item.ID])

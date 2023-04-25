@@ -10,5 +10,6 @@ config.whitelistItems["seedbag"] = true
 
 config.iconScale = 0.85
 config.grid2x2 = true
+config.showPlusSignForExtraItems = false
 
 return config
