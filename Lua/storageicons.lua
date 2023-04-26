@@ -95,6 +95,13 @@ local function drawItems(spriteBatch, rect, cached)
         local ps = cached.plusSign
         ps.sprite.Draw(spriteBatch, ps.position, Color(255, 255, 255), rotation, ps.scale)
     end
+
+    if StorageIcons.Config["showBackgroundForContrast"] then
+        local background = Sprite(StorageIcons.Path .. '/Assets/OuterGlow.png')
+        local backgroundColor = Color(128, 128, 128, 64)
+        local backgroundScale = math.min(2.0, rect.Width / background.size.X, rect.Height / background.size.Y)
+        background.Draw(spriteBatch, Vector2(rect.X, rect.Y), backgroundColor, 0, backgroundScale)
+    end
 end
 
 
