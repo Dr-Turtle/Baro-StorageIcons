@@ -111,16 +111,6 @@ Game.AddCommand("storageicons", "configures storageicons", function (command)
             print(helpTexts["add"])
         end
 
-    elseif command[1] == "remove" then
-        if command[2] then
-            local prefab = ItemPrefab.GetItemPrefab(command[2])
-            local identifier = tostring(prefab.Identifier)
-            StorageIcons.Config["whitelistItems"][identifier] = nil
-            writeConfig()
-        else
-            print(helpTexts["remove"])
-        end
-
     elseif command[1] == "reset" then
         if confirmReset then
             File.Write(StorageIcons.Path .. "/config.json", json.serialize(dofile(StorageIcons.Path .. "/Lua/defaultconfig.lua")))
