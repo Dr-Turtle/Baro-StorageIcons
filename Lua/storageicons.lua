@@ -81,7 +81,15 @@ local function drawItems(spriteBatch, rect, cached)
         sprite.Draw(spriteBatch, rectCenter, color, rotation, scale)
     else
         -- otherwise, draw the four items in a 2x2 grid
-        local positions = cached["2x2Positions"]
+		local offsetX = rect.Width / 4
+		local offsetY = rect.Height / 4
+		positions = {
+			Vector2.Add(rectCenter, Vector2(-offsetX, -offsetY)),
+			Vector2.Add(rectCenter, Vector2(offsetX, -offsetY)),
+			Vector2.Add(rectCenter, Vector2(-offsetX, offsetY)),
+			Vector2.Add(rectCenter, Vector2(offsetX, offsetY)),
+		}
+
         for i, prefab in ipairs(prefabs) do
             local itemPos = positions[i]
             local sprite = cached.drawInfo[prefab].sprite
@@ -162,17 +170,6 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
     cache[item.ID]["update"] = false
 
     local rectCenter = rect.Center.ToVector2()
-    if StorageIcons.Config["grid2x2"] then
-        local offsetX = rect.Width / 4
-        local offsetY = rect.Height / 4
-        cache[item.ID]["2x2Positions"] = {
-            -- items for 2x2 grids go left to right, top to bottom
-            Vector2.Add(rectCenter, Vector2(-offsetX, -offsetY)),
-            Vector2.Add(rectCenter, Vector2(offsetX, -offsetY)),
-            Vector2.Add(rectCenter, Vector2(-offsetX, offsetY)),
-            Vector2.Add(rectCenter, Vector2(offsetX, offsetY)),
-        }
-    end
 
     local overfilled = (not StorageIcons.Config["grid2x2"] and #prefabs > 1) or #prefabs > 4
     if StorageIcons.Config["showPlusSignForExtraItems"] and overfilled then
