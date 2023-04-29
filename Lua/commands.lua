@@ -7,36 +7,57 @@ helpTexts["remove"] = "usage: storageicons remove [ITEM]...\
 replace [ITEM]... with the name or id of each item to be removed (separated by spaces, case-insensitive)\
 example: storageicons remove explosivecrate \"secure metal crate\"\
 - adds Explosive Crate and Secure Metal Crate to whitelist"
-helpTexts["scale"] = "usage: scale [SCALE]\
-changes the scale of icons (relative to the storage icon's scale), it is recommended to have this between 0.5 and 1\
-example: storageicons scale 0.5\
-- sets the scale to 0.5"
+helpTexts["config"] = "usage: config [OPTION] [VALUE]\
+sets the config [OPTION] to [VALUE]\
+when used by itself, lists all config options, a description, the current value and default value\
+example: storageicons config\
+- list all config options\
+example: storageicons config scale 0.5\
+- sets the item scale to 0.5"
 helpTexts["help"] = "usage: storageicons [COMMAND]\
-- replace [COMMAND] with one of the following commands\n\
+- replace [COMMAND] with one of the following commands\
+\
 add/remove [ITEM]...\
 - adds or removes ITEMs from the whitelist\
-- replace [ITEM]... with the name or id of each item to be added/removed (separated by spaces, case-insensitive)\n\
-scale [SCALE]\
-- changes the scale of icons (relative to the storage icon's scale), it is recommeneded to have this between 0.5 and 1\
+- replace [ITEM]... with the name or id of each item to be added/removed (separated by spaces, case-insensitive)\
+\
+config\
+- list all config options\
+\
+config [OPTION] [VALUE]\
+- sets the config [OPTION] to [VALUE]\
+\
 whitelist\
-- lists all items in the whitelist\n\
+- lists all items in the whitelist\
+\
 reload\
-- reloads the config file and manually resets cached data (use this if something is broken)\n\
+- reloads the config file and manually resets cached data (use this if something is broken)\
+\
 reset\
 - resets the config to defaults"
 
+local configNameMap = {
+    scale = "iconScale",
+    background = "showBackgroundForContrast",
+    showfour = "grid2x2",
+    showplus = "showPlusSignForExtraItems"
+}
+local configDescriptions = {}
+configDescriptions["scale"] = "changes the scale of icons (relative to the storage icon's scale), it is recommended to have this between 0.5 and 1"
+configDescriptions["background"] = "when true, adds a transparent background to make items easier to see"
+configDescriptions["showfour"] = "when true, displays up to four item types in a 2x2 grid"
+configDescriptions["showplus"] = "when true, adds a plus sign when there are more item types than can be displayed"
+
+local defaultConfig = dofile(StorageIcons.Path .. "/Lua/defaultconfig.lua")
 local confirmReset = false
 
 
-local function writeConfig()
-    local newConfig = {}
-    for k, v in pairs(StorageIcons.Config["whitelistItems"]) do
-        if v then
-            newConfig[k] = v
-        end
-    end
-    StorageIcons.Config["whitelistItems"] = newConfig
-    File.Write(StorageIcons.Path .. "/config.json", json.serialize(StorageIcons.Config))
+local function writeConfig(config)
+    File.Write(StorageIcons.Path .. "/config.json", json.serialize(config))
+end
+
+local function readConfig()
+    return json.parse(File.Read(StorageIcons.Path .. "/config.json"))
 end
 
 
@@ -47,7 +68,7 @@ Game.AddCommand("storageicons", "configures storageicons", function (command)
     end
 
     if command[1] == "reload" then
-        StorageIcons.Config = json.parse(File.Read(StorageIcons.Path .. "/config.json"))
+        StorageIcons.Config = readConfig()
         StorageIcons.resetCache()
         print("config has been reloaded and cache has been cleared")
 
@@ -111,20 +132,10 @@ Game.AddCommand("storageicons", "configures storageicons", function (command)
             print(helpTexts["add"])
         end
 
-    elseif command[1] == "remove" then
-        if command[2] then
-            local prefab = ItemPrefab.GetItemPrefab(command[2])
-            local identifier = tostring(prefab.Identifier)
-            StorageIcons.Config["whitelistItems"][identifier] = nil
-            writeConfig()
-        else
-            print(helpTexts["remove"])
-        end
-
     elseif command[1] == "reset" then
         if confirmReset then
-            File.Write(StorageIcons.Path .. "/config.json", json.serialize(dofile(StorageIcons.Path .. "/Lua/defaultconfig.lua")))
-            StorageIcons.Config = json.parse(File.Read(StorageIcons.Path .. "/config.json"))
+            writeConfig(defaultConfig)
+            StorageIcons.Config = readConfig()
             StorageIcons.resetCache()
             print("Config has been reset")
             confirmReset = false
@@ -138,23 +149,50 @@ Game.AddCommand("storageicons", "configures storageicons", function (command)
             print(ItemPrefab.GetItemPrefab(v).Name, " | ", v)
         end
 
-    elseif command[1] == "scale" then
-        local scale
-        if command[2] then
-            local success = pcall(function()
-                scale = tonumber(command[2])
-            end)
-            if success then
-                StorageIcons.Config["iconScale"] = scale
-                writeConfig()
-                StorageIcons.resetCache()
-            else
-                print("Could not convert \"", command[2], "\" to a number")
+    elseif command[1] == "config" then
+        if not command[2] then
+            for name, key in pairs(configNameMap) do
+                local value = tostring(StorageIcons.Config[key])
+                local default = tostring(defaultConfig[key])
+                print(name .. " | " .. value .. " (default " .. default .. ")")
+                print("- " .. configDescriptions[name] .. "\n")
             end
-        else
-            print(helpTexts["scale"])
-            print("Current scale is ", StorageIcons.Config["iconScale"])
+            print("you can change a config option by running `storageicons config [OPTION] [VALUE]`")
+            return
         end
+
+        local name = command[2]
+        local key = configNameMap[command[2]]
+        local unparsedValue = command[3]
+        if not key then
+            print(name .. " is not a valid option. Run `storageicons config` to list all options")
+            return
+        end
+
+        if not unparsedValue then
+            print("must provide a value")
+            return
+        end
+
+        if type(defaultConfig[key]) == "number" then
+            local value = tonumber(unparsedValue)
+            if value == nil then
+                print(unparsedValue .. " is not a valid number. " .. name .. " must be a number")
+                return
+            end
+            StorageIcons.Config[key] = value
+        end
+        if type(defaultConfig[key]) == "boolean" then
+            if unparsedValue == "true" then StorageIcons.Config[key] = true
+            elseif unparsedValue == "false" then StorageIcons.Config[key] = false
+            else
+                print(name .. " must be `true` or `false` (without the quotes)")
+                return
+            end
+        end
+        writeConfig(StorageIcons.Config)
+        StorageIcons.resetCache()
+
     else
         print(helpTexts["help"])
     end

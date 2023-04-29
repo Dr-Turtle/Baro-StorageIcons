@@ -8,7 +8,6 @@ function StorageIcons.resetCache()
     cache = {}
 end
 
-
 local function inWhitelist(identifier)
     for k in pairs(StorageIcons.Config["whitelistItems"]) do
         if identifier == k then
@@ -24,8 +23,8 @@ Hook.Add("inventoryPutItem", "moveItem", function(inventory, item, characterUser
     local targetInventory = inventory.Owner
     if inWhitelist(targetInventory.Prefab.Identifier) and cache[targetInventory.ID] then
         cache[targetInventory.ID]["update"] = true
-    -- scale may need to be updated due to some inventories having different scale
     elseif inWhitelist(item.Prefab.Identifier) and cache[item.ID] then
+        -- scale may need to be updated due to some inventories having different scale
         cache[item.ID]["update"] = true
     end
 end)
@@ -69,64 +68,123 @@ Hook.Patch("Barotrauma.Items.Components.RangedWeapon", "Use", function(instance,
     end
 end)
 
+local function drawItems(spriteBatch, rect, cached)
+    local prefabs = cached.itemPrefabs
+    local rectCenter = rect.Center.ToVector2()
+    local rotation = 0
+
+    if #prefabs == 1 or not StorageIcons.Config["grid2x2"] then
+        -- if there's only one, draw it max size
+        local sprite = cached.drawInfo[prefabs[1]].sprite
+        local color = cached.drawInfo[prefabs[1]].color
+        local scale = cached.drawInfo[prefabs[1]].scale * StorageIcons.Config["iconScale"]
+        sprite.Draw(spriteBatch, rectCenter, color, rotation, scale)
+    else
+        -- otherwise, draw the four items in a 2x2 grid
+        local positions = cached["2x2Positions"]
+        for i, prefab in ipairs(prefabs) do
+            local itemPos = positions[i]
+            local sprite = cached.drawInfo[prefab].sprite
+            local color = cached.drawInfo[prefab].color
+            local scale = cached.drawInfo[prefab].scale / 2
+            sprite.Draw(spriteBatch, itemPos, color, rotation, scale)
+        end
+    end
+
+    if cached.plusSign then
+        local ps = cached.plusSign
+        ps.sprite.Draw(spriteBatch, ps.position, Color(255, 255, 255), rotation, ps.scale)
+    end
+
+    if StorageIcons.Config["showBackgroundForContrast"] then
+        local background = Sprite(StorageIcons.Path .. '/Assets/OuterGlow.png')
+        local backgroundColor = Color(128, 128, 128, 64)
+        local backgroundScale = math.min(2.0, rect.Width / background.size.X, rect.Height / background.size.Y)
+        background.Draw(spriteBatch, Vector2(rect.X, rect.Y), backgroundColor, 0, backgroundScale)
+    end
+end
+
 
 Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
     if not ptable["drawItem"] then return end
     local item = ptable["item"]
-    if not item then return end
 
-    local slot = ptable["slot"]
+    if not item then return end
     if not item.OwnInventory then return end
     if not inWhitelist(item.Prefab.Identifier) then return end
+
     local itemCache = cache[item.ID]
-    if itemCache then
-        if not itemCache["update"] then
-            itemCache["sprite"].Draw(itemCache["spriteBatch"], slot.Rect.Center.ToVector2(), itemCache["color"], itemCache["rotation"], itemCache["scale"])
-            return
-        end
-    end
     local spriteBatch = ptable["spriteBatch"]
     local rect = ptable["slot"].Rect
 
+    if itemCache then
+        if not itemCache["update"] then
+            drawItems(spriteBatch, rect, itemCache)
+            return
+        end
+    end
     if item.OwnInventory.IsEmpty() then return end
 
     local itemList = item.OwnInventory.FindAllItems()
 
     local itemCounts = {}
-    local maxCount = 0
-    local sprite
-    local color
+    local prefabs = {}
+    local drawInfo = {}
 
-    -- Determine which item is the most abundant and set sprite and color accordingly
+    -- determine which item is the most abundant and set sprite and color accordingly
     for v in itemList do
-        local id = v.Prefab.Identifier
-        if itemCounts[id] then
-            itemCounts[id] = itemCounts[id] + 1
+        local prefab = v.Prefab
+        if itemCounts[prefab] then
+            itemCounts[prefab] = itemCounts[prefab] + 1
         else
-            itemCounts[id] = 1
+            itemCounts[prefab] = 1
+            table.insert(prefabs, prefab)
         end
-        if itemCounts[id] > maxCount then
-            sprite = v.Prefab.InventoryIcon
+
+        if not drawInfo[prefab] then
+            drawInfo[prefab] = {}
             -- noticed a modded item didn't have an InventoryIcon, idk if it's supposed to be optional
-            if not sprite then
-                sprite = v.Prefab.Sprite
-            end
-            color = v.GetSpriteColor()
-            maxCount = itemCounts[id]
+            local sprite = prefab.InventoryIcon or prefab.Sprite
+            drawInfo[prefab].sprite = sprite
+            drawInfo[prefab].color = v.GetSpriteColor()
+            drawInfo[prefab].scale = math.min(2.0, (rect.Width - 10) / sprite.size.X, (rect.Height - 10) / sprite.size.Y)
         end
     end
-    local scale = math.min(math.min((rect.Width - 10) / sprite.size.X, (rect.Height - 10) / sprite.size.Y), 2.0) * StorageIcons.Config["iconScale"]
-    local itemPos = rect.Center.ToVector2()
-    local rotation = 0
-    sprite.Draw(spriteBatch, itemPos, color, rotation, scale)
+
+    -- pick (up to) the four most abundant items
+    table.sort(prefabs, function(a, b) return itemCounts[a] > itemCounts[b] end)
+    local abundant = table.pack(table.unpack(prefabs, 1, math.min(4, #prefabs)))
+
     -- store draw arguments to be used instead of recalculating if the inventory was not uppdated
     cache[item.ID] = {}
-    cache[item.ID]["sprite"] = sprite
-    cache[item.ID]["spriteBatch"] = spriteBatch
-    cache[item.ID]["color"] = color
-    cache[item.ID]["rotation"] = rotation
-    cache[item.ID]["scale"] = scale
+    cache[item.ID]["itemPrefabs"] = abundant
+    cache[item.ID]["drawInfo"] = drawInfo
     cache[item.ID]["update"] = false
+
+    local rectCenter = rect.Center.ToVector2()
+    if StorageIcons.Config["grid2x2"] then
+        local offsetX = rect.Width / 4
+        local offsetY = rect.Height / 4
+        cache[item.ID]["2x2Positions"] = {
+            -- items for 2x2 grids go left to right, top to bottom
+            Vector2.Add(rectCenter, Vector2(-offsetX, -offsetY)),
+            Vector2.Add(rectCenter, Vector2(offsetX, -offsetY)),
+            Vector2.Add(rectCenter, Vector2(-offsetX, offsetY)),
+            Vector2.Add(rectCenter, Vector2(offsetX, offsetY)),
+        }
+    end
+
+    local overfilled = (not StorageIcons.Config["grid2x2"] and #prefabs > 1) or #prefabs > 4
+    if StorageIcons.Config["showPlusSignForExtraItems"] and overfilled then
+        local plus = Sprite(StorageIcons.Path .. "/Assets/Plus.png")
+        local scale = math.min(2.0, rect.Width / plus.size.X, rect.Height / plus.size.Y) / 4
+        local position = Vector2.Add(rectCenter, Vector2(rect.Width / 4, -rect.Height / 8))
+        cache[item.ID]["plusSign"] = { sprite = plus, scale = scale, position = position }
+    else
+        cache[item.ID]["plusSign"] = nil
+    end
+
+    drawItems(spriteBatch, rect, cache[item.ID])
 end, Hook.HookMethodType.After)
 
 
