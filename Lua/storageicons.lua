@@ -32,7 +32,9 @@ Hook.Add("inventoryPutItem", "moveItem", function(inventory, item, characterUser
 	local targetInventory = inventory.Owner
 	if inWhitelist(targetInventory.Prefab.Identifier) and cache[targetInventory.ID] then
 		cache[targetInventory.ID]["update"] = true
-	elseif inWhitelist(item.Prefab.Identifier) and cache[item.ID] then
+	end
+
+	if inWhitelist(item.Prefab.Identifier) and cache[item.ID] then
 		-- scale may need to be updated due to some inventories having different scale
 		cache[item.ID]["update"] = true
 	end
@@ -79,7 +81,7 @@ end)
 
 local function drawItems(spriteBatch, rect, cached)
 	local prefabs = cached.itemPrefabs
-	local rectCenter = rect.Center.ToVector2()
+	local rectCenter = Vector2.Add(rect.Center.ToVector2(), cached.drawOffset)
 	local rotation = 0
 
 	if #prefabs == 1 or not StorageIcons.Config["grid2x2"] then
@@ -92,7 +94,7 @@ local function drawItems(spriteBatch, rect, cached)
 		-- otherwise, draw the four items in a 2x2 grid
 		local offsetX = rect.Width / 4
 		local offsetY = rect.Height / 4
-		positions = {
+		local positions = {
 			Vector2.Add(rectCenter, Vector2(-offsetX, -offsetY)),
 			Vector2.Add(rectCenter, Vector2(offsetX, -offsetY)),
 			Vector2.Add(rectCenter, Vector2(-offsetX, offsetY)),
@@ -110,7 +112,7 @@ local function drawItems(spriteBatch, rect, cached)
 
 	if cached.plusSign then
 		local ps = cached.plusSign
-		ps.sprite.Draw(spriteBatch, ps.position, Color(255, 255, 255), rotation, ps.scale)
+		ps.sprite.Draw(spriteBatch, Vector2.Add(ps.position, cached.drawOffset), Color(255, 255, 255), rotation, ps.scale)
 	end
 
 	if StorageIcons.Config["showBackgroundForContrast"] then
@@ -119,7 +121,7 @@ local function drawItems(spriteBatch, rect, cached)
 	end
 end
 
-
+-- public static void DrawSlot(SpriteBatch spriteBatch, Inventory inventory, VisualSlot slot, Item item, int slotIndex, bool drawItem = true, InvSlotType type = InvSlotType.Any)
 Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
 	if not ptable["drawItem"] then return end
 	local item = ptable["item"]
@@ -130,7 +132,8 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
 
 	local itemCache = cache[item.ID]
 	local spriteBatch = ptable["spriteBatch"]
-	local rect = ptable["slot"].Rect
+	local slot = ptable["slot"]
+	local rect = slot.Rect
 
 	if itemCache then
 		if not itemCache["update"] then
@@ -174,6 +177,7 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
 	cache[item.ID] = {}
 	cache[item.ID]["itemPrefabs"] = abundant
 	cache[item.ID]["drawInfo"] = drawInfo
+	cache[item.ID]["drawOffset"] = slot.DrawOffset
 	cache[item.ID]["update"] = false
 
 	local rectCenter = rect.Center.ToVector2()
