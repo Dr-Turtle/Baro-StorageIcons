@@ -6,12 +6,12 @@ local configPath = StorageIcons.Path .. "/config.json"
 local config = dofile(StorageIcons.Path .. "/Lua/defaultconfig.lua")
 
 if File.Exists(configPath) then
-    local overrides = json.parse(File.Read(configPath))
-    for i, _ in pairs(config) do
-        if overrides[i] ~= nil then
-            config[i] = overrides[i]
-        end
-    end
+	local overrides = json.parse(File.Read(configPath))
+	for i, _ in pairs(config) do
+		if overrides[i] ~= nil then
+			config[i] = overrides[i]
+		end
+	end
 end
 StorageIcons.Config = config
 
