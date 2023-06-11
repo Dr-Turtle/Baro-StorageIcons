@@ -3,6 +3,10 @@ LuaUserData.RegisterType("Barotrauma.VisualSlot")
 
 local cache = {}
 
+local background = Sprite(StorageIcons.Path .. "/Assets/OuterGlow.png")
+local backgroundColor = Color(128, 128, 128, 64)
+
+local plus = Sprite(StorageIcons.Path .. "/Assets/Plus.png")
 
 function StorageIcons.resetCache()
 	cache = {}
@@ -110,8 +114,6 @@ local function drawItems(spriteBatch, rect, cached)
 	end
 
 	if StorageIcons.Config["showBackgroundForContrast"] then
-		local background = Sprite(StorageIcons.Path .. '/Assets/OuterGlow.png')
-		local backgroundColor = Color(128, 128, 128, 64)
 		local backgroundScale = math.min(2.0, rect.Width / background.size.X, rect.Height / background.size.Y)
 		background.Draw(spriteBatch, Vector2(rect.X, rect.Y), backgroundColor, 0, backgroundScale)
 	end
@@ -178,7 +180,6 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
 
 	local overfilled = (not StorageIcons.Config["grid2x2"] and #prefabs > 1) or #prefabs > 4
 	if StorageIcons.Config["showPlusSignForExtraItems"] and overfilled then
-		local plus = Sprite(StorageIcons.Path .. "/Assets/Plus.png")
 		local scale = math.min(2.0, rect.Width / plus.size.X, rect.Height / plus.size.Y) / 4
 		local position = Vector2.Add(rectCenter, Vector2(rect.Width / 4, -rect.Height / 8))
 		cache[item.ID]["plusSign"] = { sprite = plus, scale = scale, position = position }
