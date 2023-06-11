@@ -112,7 +112,7 @@ Game.AddCommand("storageicons", "configures storageicons", function (command)
                             StorageIcons.Config["whitelistItems"][identifier] = false
                         end
                     end
-                    writeConfig()
+                    writeConfig(StorageIcons.Config)
                     if command[1] == "add" then
                         print(#command - 1, " item(s) have been added to the whitelist")
                     else
@@ -145,8 +145,11 @@ Game.AddCommand("storageicons", "configures storageicons", function (command)
         end
 
     elseif command[1] == "whitelist" then
-        for v in pairs(StorageIcons.Config["whitelistItems"]) do
-            print(ItemPrefab.GetItemPrefab(v).Name, " | ", v)
+        for k, v in pairs(StorageIcons.Config["whitelistItems"]) do
+            -- there isn't a good way to remove a value from a table, so values that were once enabled will still appear in the config, but set to false
+            if v then
+                print(ItemPrefab.GetItemPrefab(k).Name, " | ", k)
+            end
         end
 
     elseif command[1] == "config" then

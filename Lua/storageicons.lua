@@ -9,9 +9,14 @@ function StorageIcons.resetCache()
 end
 
 local function inWhitelist(identifier)
-    for k in pairs(StorageIcons.Config["whitelistItems"]) do
+    for k, v in pairs(StorageIcons.Config["whitelistItems"]) do
         if identifier == k then
-            return true
+            if v then
+                return true
+            else
+                -- if a value is set to false, return immediately
+                return false
+            end
         end
     end
     return false
