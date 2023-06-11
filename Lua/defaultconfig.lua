@@ -9,7 +9,7 @@ config.whitelistItems["mediccrate"] = true
 config.whitelistItems["seedbag"] = true
 
 config.iconScale = 0.85
-config.showBackgroundForContrast = true
+config.showBackgroundForContrast = false
 config.grid2x2 = true
 config.showPlusSignForExtraItems = false
 
