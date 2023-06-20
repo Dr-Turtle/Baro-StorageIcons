@@ -123,8 +123,10 @@ end
 
 -- public static void DrawSlot(SpriteBatch spriteBatch, Inventory inventory, VisualSlot slot, Item item, int slotIndex, bool drawItem = true, InvSlotType type = InvSlotType.Any)
 Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
-	if not ptable["drawItem"] then return end
+	---@class Barotrauma.Item
 	local item = ptable["item"]
+
+	if not ptable["drawItem"] then return end
 
 	if not item then return end
 	if not item.OwnInventory then return end
@@ -132,11 +134,15 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
 
 	local itemCache = cache[item.ID]
 	local spriteBatch = ptable["spriteBatch"]
+	---@class Barotrauma.VisualSlot
 	local slot = ptable["slot"]
 	local rect = slot.Rect
 
 	if itemCache then
 		if not itemCache["update"] then
+			if itemCache.hoverable then
+				itemCache.drawOffset = slot.DrawOffset
+			end
 			drawItems(spriteBatch, rect, itemCache)
 			return
 		end
@@ -173,12 +179,24 @@ Hook.Patch("Barotrauma.Inventory", "DrawSlot", function(instance, ptable)
 	table.sort(prefabs, function(a, b) return itemCounts[a] > itemCounts[b] end)
 	local abundant = table.pack(table.unpack(prefabs, 1, math.min(4, #prefabs)))
 
+	-- determine if the the item is inside an inventory that is opened by hovering
+	local hoverable = false
+	if LuaUserData.IsTargetType(item.parentInventory.Owner, "Barotrauma.Item") then
+		---@class Barotrauma.Item
+		local container = item.parentInventory.Owner
+		if container.parentInventory and LuaUserData.IsTargetType(container.parentInventory.Owner, "Barotrauma.Character")
+				and container.parentInventory.IsInventoryHoverAvailable(container.parentInventory.Owner, container.GetComponentString("ItemContainer")) then
+			hoverable = true
+		end
+	end
+
 	-- store draw arguments to be used instead of recalculating if the inventory was not uppdated
 	cache[item.ID] = {}
 	cache[item.ID]["itemPrefabs"] = abundant
 	cache[item.ID]["drawInfo"] = drawInfo
 	cache[item.ID]["drawOffset"] = slot.DrawOffset
 	cache[item.ID]["update"] = false
+	cache[item.ID]["hoverable"] = hoverable
 
 	local rectCenter = rect.Center.ToVector2()
 
