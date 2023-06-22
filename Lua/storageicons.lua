@@ -157,7 +157,8 @@ function drawItems(spriteBatch, rect, cached)
 
 	if cached.plusSign then
 		local ps = cached.plusSign
-		ps.sprite.Draw(spriteBatch, Vector2.Add(ps.position, cached.drawOffset), Color(255, 255, 255), rotation, ps.scale)
+		local position = Vector2.Add(rectCenter, Vector2(rect.Width / 4, -rect.Height / 8))
+		ps.sprite.Draw(spriteBatch, Vector2.Add(position, cached.drawOffset), Color(255, 255, 255), rotation, ps.scale)
 	end
 
 	if StorageIcons.Config.showBackgroundForContrast then
@@ -207,8 +208,7 @@ function update(item, slot, spriteBatch)
 	local overfilled = (not StorageIcons.Config.grid2x2 and #prefabs > 1) or #prefabs > 4
 	if StorageIcons.Config.showPlusSignForExtraItems and overfilled then
 		local scale = math.min(2.0, rect.Width / plus.size.X, rect.Height / plus.size.Y) / 4
-		local position = Vector2.Add(rectCenter, Vector2(rect.Width / 4, -rect.Height / 8))
-		itemCache.plusSign = { sprite = plus, scale = scale, position = position }
+		itemCache.plusSign = { sprite = plus, scale = scale }
 	else
 		itemCache.plusSign = nil
 	end
